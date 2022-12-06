@@ -1,4 +1,4 @@
-FROM DOCKERHUB_USER/weaveARCH_EXT
+FROM cr.loongnix.cn/DOCKERHUB_USER/weaveARCH_EXT:2.1.3
 
 ENTRYPOINT ["/home/weave/sigproxy", "/home/weave/weave"]
 

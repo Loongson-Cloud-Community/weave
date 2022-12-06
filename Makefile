@@ -136,14 +136,16 @@ NETWORKTESTER_UPTODATE=.networktester$(ARCH_EXT).uptodate
 IMAGES_UPTODATE=$(WEAVER_UPTODATE) $(WEAVEEXEC_UPTODATE) $(WEAVEKUBE_UPTODATE) $(WEAVENPC_UPTODATE) $(NETWORKTESTER_UPTODATE)
 
 # The names of the images. Note that the images for other architectures than amd64 have a suffix in the image name.
-WEAVER_IMAGE=$(DOCKERHUB_USER)/weave$(ARCH_EXT)
-WEAVEEXEC_IMAGE=$(DOCKERHUB_USER)/weaveexec$(ARCH_EXT)
-WEAVEKUBE_IMAGE=$(DOCKERHUB_USER)/weave-kube$(ARCH_EXT)
-WEAVENPC_IMAGE=$(DOCKERHUB_USER)/weave-npc$(ARCH_EXT)
-BUILD_IMAGE=weaveworks/weavebuild
+IMAGE_VERSION=2.1.3
+REGISTRY?=cr.loongnix.cn
+WEAVER_IMAGE=$(REGISTRY)/$(DOCKERHUB_USER)/weave$(ARCH_EXT):$(IMAGE_VERSION)
+WEAVEEXEC_IMAGE=$(REGISTRY)/$(DOCKERHUB_USER)/weaveexec$(ARCH_EXT):$(IMAGE_VERSION)
+WEAVEKUBE_IMAGE=$(REGISTRY)/$(DOCKERHUB_USER)/weave-kube$(ARCH_EXT):$(IMAGE_VERSION)
+WEAVENPC_IMAGE=$(REGISTRY)/$(DOCKERHUB_USER)/weave-npc$(ARCH_EXT):$(IMAGE_VERSION)
+BUILD_IMAGE=$(REGISTRY)/weaveworks/weavebuild:$(IMAGE_VERSION)
 WEAVEDB_IMAGE=$(DOCKERHUB_USER)/weavedb
 PLUGIN_IMAGE=$(DOCKERHUB_USER)/net-plugin
-NETWORKTESTER_IMAGE=$(DOCKERHUB_USER)/network-tester
+NETWORKTESTER_IMAGE=$(REGISTRY)/$(DOCKERHUB_USER)/network-tester:$(IMAGE_VERSION)
 
 IMAGES=$(WEAVER_IMAGE) $(WEAVEEXEC_IMAGE) $(WEAVEKUBE_IMAGE) $(WEAVENPC_IMAGE) $(WEAVEDB_IMAGE) $(NETWORKTESTER_IMAGE)
 
@@ -196,9 +198,9 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 # This make target compiles all binaries inside of the weaveworks/build container
 # It bind-mounts the source into the container and passes all important variables
 exes $(EXES) tests lint: $(BUILD_UPTODATE)
-	git submodule update --init
+	#git submodule update --init
 # Containernetworking has another copy of vishvananda/netlink which leads to duplicate definitions
-	-@rm -r vendor/github.com/containernetworking/cni/vendor
+	#-@rm -r vendor/github.com/containernetworking/cni/vendor
 	@mkdir -p $(shell pwd)/.pkg
 	$(SUDO) docker run $(RM) $(RUN_FLAGS) \
 	    -v $(shell pwd):/go/src/github.com/weaveworks/weave \
@@ -249,7 +251,7 @@ endif
 # It also makes sure the multiarch hooks are reqistered in the kernel so the QEMU emulation works
 $(BUILD_UPTODATE): build/*
 	$(SUDO) docker build -t $(BUILD_IMAGE) build/
-	$(SUDO) docker run --rm --privileged multiarch/qemu-user-static:register --reset
+#	$(SUDO) docker run --rm --privileged multiarch/qemu-user-static:register --reset
 	touch $@
 
 # Creates the Dockerfile.your-user-here file from the template
@@ -265,8 +267,8 @@ ifeq ($(ARCH),amd64)
 else
 # When cross-building, only the placeholder "CROSS_BUILD_" should be removed
 # Register /usr/bin/qemu-ARCH-static as the handler for ARM and ppc64le binaries in the kernel
-	curl -sSL https://github.com/multiarch/qemu-user-static/releases/download/$(QEMU_VERSION)/x86_64_qemu-$(QEMUARCH)-static.tar.gz | tar -xz -C $(shell dirname $@)
-	cd $(shell dirname $@) && sha256sum -c $(shell pwd)/build/shasums/qemu-$(QEMUARCH)-static.sha256sum
+	#curl -sSL https://github.com/multiarch/qemu-user-static/releases/download/$(QEMU_VERSION)/x86_64_qemu-$(QEMUARCH)-static.tar.gz | tar -xz -C $(shell dirname $@)
+	#cd $(shell dirname $@) && sha256sum -c $(shell pwd)/build/shasums/qemu-$(QEMUARCH)-static.sha256sum
 	sed -i.bak "s/CROSS_BUILD_//g" $@
 endif
 
@@ -320,7 +322,7 @@ $(NETWORKTESTER_UPTODATE): test/images/network-tester/Dockerfile $(NETWORKTESTER
 	touch $@
 
 $(WEAVE_EXPORT): $(IMAGES_UPTODATE) $(WEAVEDB_UPTODATE)
-	$(SUDO) DOCKER_HOST=$(DOCKER_HOST) docker save $(addsuffix :latest,$(IMAGES)) | gzip > $@
+	$(SUDO) DOCKER_HOST=$(DOCKER_HOST) docker save $(addsuffix :v2.1.3,$(IMAGES)) | gzip > $@
 
 tools/.git $(MANIFEST_TOOL_DIR)/.git:
 	git submodule update --init

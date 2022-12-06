@@ -1,31 +1,25 @@
-FROM golang:1.8.1
+FROM cr.loongnix.cn/library/golang:1.15
+
+LABEL maintainer="zhaixiaojuan@loongson.cn"
 
 # Support Raspberry Pi 2 and newer
 ENV GOARM 7
 
 # The names of the architectures that we're fetching cross-compilers for from the Debian packages
-ENV DEB_CROSSPLATFORMS \
-	armhf \
-	arm64 \
-	ppc64el
+ENV DEB_CROSSPLATFORMS loongarch64
 
 # The go platforms we are supporting to cross-compile
-ENV GO_CROSSPLATFORMS \
-	linux/arm \
-	linux/arm64 \
-	linux/ppc64le
+ENV GO_CROSSPLATFORMS linux/loong64
 
 # The names of the gcc cross-compilers we have installed
-ENV GCC_CROSSCOMPILERS \
-	arm-linux-gnueabihf \
-	aarch64-linux-gnu \
-	powerpc64le-linux-gnu
+ENV GCC_CROSSCOMPILERS         loongarch64-linux-gnu
 
 # Temporarily add the Debian repositories, because we're going to install gcc cross-compilers from there
 # Install the build-essential and crossbuild-essential-ARCH packages
-RUN echo "deb http://emdebian.org/tools/debian/ jessie main" > /etc/apt/sources.list.d/cgocrosscompiling.list \
-  && curl http://emdebian.org/tools/debian/emdebian-toolchain-archive.key | apt-key add - \
-  && for platform in ${DEB_CROSSPLATFORMS}; do dpkg --add-architecture $platform; done \
+#RUN echo "deb http://emdebian.org/tools/debian/ jessie main" > /etc/apt/sources.list.d/cgocrosscompiling.list \
+#  && curl http://emdebian.org/tools/debian/emdebian-toolchain-archive.key | apt-key add - \
+
+RUN for platform in ${DEB_CROSSPLATFORMS}; do dpkg --add-architecture $platform; done \
   && apt-get update \
   && apt-get install -y build-essential \
   && for platform in ${DEB_CROSSPLATFORMS}; do apt-get install -y crossbuild-essential-${platform}; done \
@@ -43,25 +37,28 @@ RUN apt-get update \
 		flex \
 		bison
 
-RUN curl -fsSLo shfmt https://github.com/mvdan/sh/releases/download/v1.3.0/shfmt_v1.3.0_linux_amd64 && \
-	echo "b1925c2c405458811f0c227266402cf1868b4de529f114722c2e3a5af4ac7bb2  shfmt" | sha256sum -c && \
-	chmod +x shfmt && \
-	mv shfmt /usr/bin
+#RUN curl -fsSLo shfmt https://github.com/mvdan/sh/releases/download/v1.3.0/shfmt_v1.3.0_linux_amd64 && \
+#	echo "b1925c2c405458811f0c227266402cf1868b4de529f114722c2e3a5af4ac7bb2  shfmt" | sha256sum -c && \
+#	chmod +x shfmt && \
+#	mv shfmt /usr/bin
 
 # Install common Go tools
-RUN go get \
-	github.com/golang/lint/golint \
-	github.com/fzipp/gocyclo \
-	github.com/fatih/hclfmt \
-	github.com/client9/misspell/cmd/misspell
+
+RUN go env -w GO111MODULE=on \
+       && go env -w GOSUMDB=off \
+       && go get \
+       golang.org/x/lint/golint \
+       github.com/fzipp/gocyclo@v0.3.0 \
+       github.com/fatih/hclfmt \
+       github.com/client9/misspell/cmd/misspell \
+       && go env -w GO111MODULE=""
 
 # First clean, because we're gonna rebuild the std both with -race enabled and disabled
 # Running go install std twice is intentional and required, as content is written in two different directories
 # (/usr/local/go/pkg/linux_amd64 vs /usr/local/go/pkg/linux_amd64_race)
 # The other architectures do not have support for -race
 RUN go clean -i net \
-	&& go install -tags netgo std \
-	&& go install -race -tags netgo std
+	&& go install -tags netgo std
 
 # Prebuild std for the other architectures
 RUN for platform in ${GO_CROSSPLATFORMS}; do \
@@ -76,6 +73,8 @@ RUN chmod -R a+w /usr/local/go
 ENV LIBPCAP_CROSS_VERSION=1.6.2
 RUN curl -sSL http://www.tcpdump.org/release/libpcap-${LIBPCAP_CROSS_VERSION}.tar.gz | tar -xz \
 	&& cd libpcap-${LIBPCAP_CROSS_VERSION} \
+	&& wget -O ./config.sub "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD" \
+	&& wget -O ./config.guess "git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD" \
 	&& for crosscompiler in ${GCC_CROSSCOMPILERS}; do \
 		CC=${crosscompiler}-gcc ac_cv_linux_vers=2 ./configure --host=${crosscompiler} --with-pcap=linux \
 		&& make \
