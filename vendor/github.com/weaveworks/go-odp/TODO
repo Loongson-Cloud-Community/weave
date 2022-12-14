@@ -1,0 +1,24 @@
+tool: elaborate error messages
+
+TODOs in dpif.go
+
+Caching/joining for vport names in printFlow
+
+Handle NLM_F_DUMP_INTR
+
+Printfs should use logging?
+
+Dump flow stats
+
+Put enum name comments everywhere in syscall.go
+
+Use MSG_TRUNC on recv, and a large reusable buffer.
+
+Netlink message dumper
+
+Set O_DONTBLOCK on recvs?
+
+Handle the flag bits in nlattr type field
+
+Follow netlink-socket.c:1106: mutex around receiving on netlink socket
+to avoid in-kernel race.
