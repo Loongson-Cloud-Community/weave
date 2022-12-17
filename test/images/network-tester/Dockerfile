@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM bash
+FROM cr.loongnix.cn/library/bash:5.2
 RUN apk add --no-cache curl
 ADD webserver webserver
 EXPOSE 8080
